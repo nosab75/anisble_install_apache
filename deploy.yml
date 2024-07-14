@@ -1,0 +1,42 @@
+---
+- name: Installer Apache2 sur Ubuntu
+  hosts: prod
+  become: true
+  vars_files:
+    - files/secrets/credentials.yml
+
+  tasks:
+    - name: Mise à jour de la liste des paquets
+      apt:
+        update_cache: yes
+
+    - name: Supprimer le fichier de verrouillage /var/lib/dpkg/lock-frontend
+      file:
+        path: /var/lib/dpkg/lock-frontend
+        state: absent
+      ignore_errors: yes
+
+    - name: Supprimer le fichier de verrouillage /var/lib/dpkg/lock
+      file:
+        path: /var/lib/dpkg/lock
+        state: absent
+      ignore_errors: yes
+
+    - name: Attendre quelques secondes avant de réessayer
+      wait_for:
+        timeout: 10
+
+    - name: Installer Apache2
+      apt:
+        name: apache2
+        state: present
+      register: result
+      until: result is succeeded
+      retries: 5
+      delay: 30
+
+    - name: S'assurer qu'Apache2 est démarré et activé
+      systemd:
+        name: apache2
+        state: started
+        enabled: true
